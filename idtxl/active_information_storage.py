@@ -344,8 +344,8 @@ class ActiveInformationStorage(SingleProcessAnalysis):
         """
         success = False
         if self.settings['verbose']:
-                print('testing candidate set: {0}'.format(
-                                    self._idx_to_lag(candidate_set)))
+            print('testing candidate set: {0}'.format(
+                                self._idx_to_lag(candidate_set)))
         while candidate_set:
             # Get realisations for all candidates.
             cand_real = data.get_realisations(self.current_value,
@@ -365,12 +365,12 @@ class ActiveInformationStorage(SingleProcessAnalysis):
                 #  we'll terminate the search for more candidates,
                 #  though those identified already remain valid
                 print('AlgorithmExhaustedError encountered in '
-                    'estimations: ' + aee.message)
+                      'estimations: ' + aee.message)
                 print('Halting current estimation set.')
                 # For now we don't need a stack trace:
                 # traceback.print_tb(aee.__traceback__)
                 break
-            
+
             # Test max CMI for significance with maximum statistics.
             te_max_candidate = max(temp_te)
             max_candidate = candidate_set[np.argmax(temp_te)]
@@ -379,8 +379,9 @@ class ActiveInformationStorage(SingleProcessAnalysis):
                                 self._idx_to_lag([max_candidate])[0]), end='')
             significant = False
             try:
-                significant = stats.max_statistic(self, data, candidate_set,
-                                              te_max_candidate)[0]
+                significant = stats.max_statistic(
+                    self, data, candidate_set, te_max_candidate,
+                    conditional=self._selected_vars_realisations)[0]
             except ex.AlgorithmExhaustedError as aee:
                 # The algorithm cannot continue here, so
                 #  we'll terminate the check on the max stats and not let the
@@ -391,7 +392,7 @@ class ActiveInformationStorage(SingleProcessAnalysis):
                 # For now we don't need a stack trace:
                 # traceback.print_tb(aee.__traceback__)
                 break
-            
+
             # If the max is significant keep it and test the next candidate. If
             # it is not significant break. There will be no further significant
             # sources b/c they all have lesser TE.
@@ -484,12 +485,19 @@ class ActiveInformationStorage(SingleProcessAnalysis):
             te_min_candidate = min(temp_te)
             min_candidate = self.selected_vars_sources[np.argmin(temp_te)]
             if self.settings['verbose']:
-                print('{0}'.format(self._idx_to_lag([min_candidate])[0]))
+                print('testing candidate: {0}'.format(
+                    self._idx_to_lag([min_candidate])[0]))
+            remaining_candidates = set(self.selected_vars_sources).difference(
+                    set([min_candidate]))
+            conditional_realisations = data.get_realisations(
+                self.current_value, remaining_candidates)[0]
             try:
                 [significant, p, surr_table] = stats.min_statistic(
-                                              self, data,
-                                              self.selected_vars_sources,
-                                              te_min_candidate)
+                                    analysis_setup=self,
+                                    data=data,
+                                    candidate_set=self.selected_vars_sources,
+                                    te_min_candidate=te_min_candidate,
+                                    conditional=conditional_realisations)
             except ex.AlgorithmExhaustedError as aee:
                 # The algorithm cannot continue here, so
                 #  we'll terminate the min statistics
